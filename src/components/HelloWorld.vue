@@ -8,9 +8,11 @@
 </template>
 
 <script>
-import web3 from "web3";
+import Web3 from "web3";
 
 const {ethereum} = window;
+
+let web3;
 
 export default {
   name: 'HelloWorld',
@@ -18,9 +20,20 @@ export default {
     msg: String
   },
   async mounted() {
-    if (typeof ethereum !== 'undefined') {
-      console.log('MetaMask is installed!');
+    if (typeof ethereum === 'undefined') {
+      console.log('MetaMask is not installed!');
     }
+
+    await ethereum.enable()
+    // We are in the browser and web3 provider has been injected (probably by Metamask)
+    // Issue: https://github.com/ethereum/web3.js/issues/2640
+    // Use transactionConfirmationBlocks
+    web3 = new Web3(ethereum, null, {transactionConfirmationBlocks: 1})
+
+    const acc = await web3.eth.getAccounts();
+
+    console.log(acc[0], "result");
+
     const accounts = await ethereum.request({method: 'eth_requestAccounts'});
     const account = accounts[0];
 
@@ -35,6 +48,9 @@ export default {
   },
   methods: {
     async sendToken() {
+
+    // 단위 해결만 하면 되겠는데
+
       const transactionParameters = {
         // value: '0x29a2241af62c0000',
         value: web3.utils.toWei(String('0.008'), 'ether'),
@@ -46,11 +62,17 @@ export default {
         chainId: '0x3', // Used to prevent transaction reuse across blockchains. Auto-filled by MetaMask.
       };
 
+      const estimateGas = await web3.eth.estimateGas({ ...transactionParameters });
+      console.log(estimateGas);
+
 // txHash is a hex string
 // As with any RPC call, it may throw an error
       const txHash = await ethereum.request({
         method: 'eth_sendTransaction',
-        params: [transactionParameters],
+        params: [{
+          gas: web3.utils.toWei(String(estimateGas), 'ether'),
+          ...transactionParameters,
+        }],
       });
 
       console.log(txHash);
